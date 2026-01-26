@@ -1,1 +1,581 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Informasi Lab Jalan Raya</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        :root {
+            --primary-blue: #2563eb;
+            --dark-blue: #1e3a8a;
+            --soft-blue: #f0f7ff;
+        }
 
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #f8fbff 0%, #e0f2fe 100%);
+            min-height: 100vh;
+            color: #1e293b;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-3d {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: perspective(1000px) rotateX(0deg);
+        }
+
+        .card-3d:hover {
+            transform: perspective(1000px) rotateX(2deg) translateY(-8px);
+            box-shadow: 0 30px 60px rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-3d {
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 0 #1d4ed8;
+            position: relative;
+            top: 0;
+        }
+
+        .btn-3d:active {
+            top: 3px;
+            box-shadow: 0 1px 0 #1d4ed8;
+        }
+
+        .hidden-view { display: none !important; }
+
+        /* Modals */
+        #popup-daily, #modal-admin-login { 
+            display: none; 
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            align-items: center;
+            justify-content: center;
+        }
+        #popup-daily.active, #modal-admin-login.active { display: flex; }
+
+        .popup-scale {
+            animation: popupSpring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popupSpring {
+            from { transform: scale(0.8) translateY(30px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            -webkit-background-clip: text;
+            background-clip: text; /* Fix baris 85 untuk kompatibilitas */
+            -webkit-text-fill-color: transparent;
+        }
+
+        input, textarea, select {
+            transition: all 0.2s ease;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #2563eb;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="pb-10">
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-blue-100 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer group" onclick="window.showView('landing')">
+                <div class="bg-blue-600 p-2 rounded-xl text-white shadow-lg group-hover:rotate-12 transition-transform">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <span class="font-extrabold text-xl tracking-tighter gradient-text uppercase">LAB JALAN RAYA</span>
+            </div>
+            <div id="auth-status" class="bg-blue-50 px-4 py-2 rounded-2xl border border-blue-100 flex items-center gap-2">
+                <div id="status-dot" class="w-2 h-2 bg-slate-400 rounded-full"></div>
+                <span id="status-text" class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Menghubungkan...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 1. LANDING VIEW -->
+    <main id="view-landing" class="fade-in max-w-5xl mx-auto px-4 py-16 text-slate-900">
+        <div class="text-center mb-16">
+            <h1 class="text-5xl md:text-7xl font-black mb-6 tracking-tighter leading-none">
+                Sistem Informasi <br><span class="gradient-text">Laboratorium.</span>
+            </h1>
+            <p class="text-slate-500 max-w-lg mx-auto font-medium text-sm md:text-base leading-relaxed">
+                Platform digital manajemen penjadwalan riset dan praktikum infrastruktur jalan raya.
+            </p>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div onclick="window.showView('mahasiswa')" class="card-3d glass-card p-10 rounded-[40px] cursor-pointer group">
+                <div class="bg-blue-600 text-white w-20 h-20 rounded-3xl flex items-center justify-center mb-8 shadow-xl group-hover:scale-110 transition-transform text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                </div>
+                <h3 class="text-3xl font-black mb-2 uppercase tracking-tighter">Mahasiswa</h3>
+                <p class="text-sm text-slate-400 font-medium">Input rencana kegiatan dan cek agenda harian.</p>
+                <div class="mt-10 flex items-center gap-2 text-blue-600 font-black text-sm uppercase tracking-widest">Mulai Sesi <span>→</span></div>
+            </div>
+
+            <div onclick="window.openAdminLogin()" class="card-3d bg-slate-900 p-10 rounded-[40px] cursor-pointer group shadow-2xl">
+                <div class="bg-blue-600 text-white w-20 h-20 rounded-3xl flex items-center justify-center mb-8 shadow-xl group-hover:scale-110 transition-transform text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                </div>
+                <h3 class="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Administrator</h3>
+                <p class="text-sm text-slate-500 font-medium">Manajemen database master dan ekspor laporan kerja.</p>
+                <div class="mt-10 flex items-center gap-2 text-white font-black text-sm uppercase tracking-widest">Login Admin <span>→</span></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 2. MAHASISWA DASHBOARD -->
+    <main id="view-mahasiswa" class="hidden-view fade-in max-w-6xl mx-auto px-4 py-10 text-slate-900 text-left">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+            <div>
+                <h2 class="text-4xl font-black tracking-tighter">Portal Mahasiswa</h2>
+                <p class="text-blue-600 font-black text-xs uppercase tracking-widest mt-1">Layanan Informasi Terpadu</p>
+            </div>
+            <button onclick="window.openDailyPopup()" class="w-full md:w-auto btn-3d bg-amber-500 text-white px-8 py-5 rounded-[25px] font-black text-sm flex items-center justify-center gap-3 active:scale-95 shadow-lg text-white">
+                <span class="text-xl">📅</span> CEK KEGIATAN HARI INI
+            </button>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-8 mb-20">
+            <div onclick="window.showView('form-praktikum')" class="card-3d glass-card p-10 rounded-[40px] cursor-pointer border-2 border-transparent hover:border-blue-600">
+                <div class="bg-blue-100 text-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+                <h4 class="text-2xl font-black mb-2">Rencana Praktikum</h4>
+                <p class="text-slate-400 text-sm font-medium leading-relaxed">Input pendaftaran jadwal praktikum kelompok reguler.</p>
+            </div>
+            <div onclick="window.showView('form-penelitian')" class="card-3d glass-card p-10 rounded-[40px] cursor-pointer border-2 border-transparent hover:border-emerald-600">
+                <div class="bg-emerald-100 text-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.628.283a2 2 0 01-1.186.12l-2.011-.402a2 2 0 01-1.358-1.213L6.041 11.2a2 2 0 00-1.213-1.358l-2.011-.402a2 2 0 01-1.186-.12l-.628-.283a2 2 0 00-3.86.517l-2.387.477a2 2 0 00-1.022.547V18a2 2 0 002 2h11a2 2 0 002-2v-2.572z"/></svg>
+                </div>
+                <h4 class="text-2xl font-black mb-2">Rencana Penelitian</h4>
+                <p class="text-slate-400 text-sm font-medium leading-relaxed">Klik untuk penjadwalan riset mandiri atau TA.</p>
+            </div>
+        </div>
+
+        <div class="space-y-24">
+            <div class="space-y-8">
+                <div class="flex items-center gap-4"><div class="w-2 h-10 bg-blue-600 rounded-full"></div><h3 class="text-2xl font-black">Riwayat Praktikum</h3></div>
+                <div id="history-praktikum" class="space-y-8 text-slate-400 italic">Memuat riwayat...</div>
+            </div>
+            <div class="space-y-8 text-left">
+                <div class="flex items-center gap-4"><div class="w-2 h-10 bg-emerald-600 rounded-full"></div><h3 class="text-2xl font-black">Riwayat Penelitian</h3></div>
+                <div id="history-penelitian" class="space-y-8 text-slate-400 italic">Memuat riwayat...</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 3. FORM PRAKTIKUM -->
+    <main id="view-form-praktikum" class="hidden-view fade-in max-w-2xl mx-auto px-4 py-10">
+        <button onclick="window.showView('mahasiswa')" class="mb-8 font-black text-blue-600 flex items-center gap-2">← KEMBALI KE PORTAL</button>
+        <div class="glass-card rounded-[40px] overflow-hidden text-slate-900">
+            <div class="bg-blue-600 p-10 text-white text-center shadow-lg text-white">
+                <h3 class="text-3xl font-black">Form Praktikum</h3>
+                <p class="text-blue-100 text-sm font-bold opacity-80">Pastikan asisten sudah setuju dengan jadwal.</p>
+            </div>
+            <form id="praktikumForm" class="p-10 space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">No. Kelompok</label><input type="text" id="p-kelompok" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Nama Asisten</label><input type="text" id="p-asisten" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                </div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Modul Praktikum</label><input type="text" id="p-modul" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Tanggal</label><input type="date" id="p-tanggal" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                <div class="grid grid-cols-2 gap-4 text-slate-900">
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Mulai</label><input type="time" id="p-mulai" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Selesai</label><input type="time" id="p-selesai" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                </div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Alat & Bahan Digunakan</label><textarea id="p-alat-bahan" required rows="3" class="w-full px-5 py-4 border rounded-2xl font-bold" placeholder="Tuliskan peralatan utama..."></textarea></div>
+                <button type="submit" id="btn-submit-p" class="w-full btn-3d bg-blue-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs text-white">SIMPAN JADWAL & SELESAI</button>
+            </form>
+        </div>
+    </main>
+
+    <!-- 4. FORM PENELITIAN -->
+    <main id="view-form-penelitian" class="hidden-view fade-in max-w-2xl mx-auto px-4 py-10 text-slate-900">
+        <button onclick="window.showView('mahasiswa')" class="mb-8 font-black text-emerald-600 flex items-center gap-2">← KEMBALI KE PORTAL</button>
+        <div class="glass-card rounded-[40px] overflow-hidden">
+            <div class="bg-emerald-600 p-10 text-white text-center shadow-lg text-white">
+                <h3 class="text-3xl font-black">Form Penelitian</h3>
+                <p class="text-emerald-100 text-sm font-bold opacity-80">Gunakan nama lengkap sesuai KTM.</p>
+            </div>
+            <form id="penelitianForm" class="p-10 space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Nama Lengkap</label><input type="text" id="n-nama" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">NPM</label><input type="text" id="n-npm" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                </div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Aktivitas Penelitian</label><input type="text" id="n-aktivitas" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Tanggal</label><input type="date" id="n-tanggal" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Mulai</label><input type="time" id="n-mulai" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                    <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Selesai</label><input type="time" id="n-selesai" required class="w-full px-5 py-4 border rounded-2xl font-bold"></div>
+                </div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Alat & Bahan Digunakan</label><textarea id="n-alat-bahan" required rows="3" class="w-full px-5 py-4 border rounded-2xl font-bold" placeholder="Sebutkan alat penelitian..."></textarea></div>
+                <button type="submit" id="btn-submit-n" class="w-full btn-3d bg-emerald-600 text-white font-black py-5 rounded-2xl uppercase tracking-widest text-xs text-white">SIMPAN JADWAL & SELESAI</button>
+            </form>
+        </div>
+    </main>
+
+    <!-- 5. SUCCESS PAGE (INSTRUKSI) -->
+    <main id="view-success" class="hidden-view fade-in max-w-lg mx-auto px-4 py-20 text-center text-slate-900">
+        <div class="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-[35px] flex items-center justify-center mx-auto mb-10 shadow-xl border-4 border-white rotate-6">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h2 id="success-header" class="text-3xl font-black mb-4 gradient-text text-slate-900">Pendaftaran Berhasil!</h2>
+        <div class="glass-card p-8 rounded-[40px] mb-10 text-left text-slate-900">
+            <h4 class="font-black text-slate-800 mb-4 uppercase tracking-widest text-[10px]">Wajib Dilakukan:</h4>
+            <div class="space-y-4">
+                <div class="flex gap-4"><div class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-[10px] flex-shrink-0 text-white">1</div><p class="text-xs font-bold text-slate-600 leading-relaxed">Silahkan lakukan <span class="text-blue-600 font-black underline">Absensi Barcode</span> ke Laboran sebelum memulai kegiatan.</p></div>
+                <div class="flex gap-4"><div class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center font-black text-[10px] flex-shrink-0 text-white">2</div><p class="text-xs font-bold text-slate-600 leading-relaxed">Gunakan perlengkapan safety (APD) sesuai SOP Laboratorium.</p></div>
+            </div>
+        </div>
+        <button onclick="window.showView('mahasiswa')" class="w-full btn-3d bg-slate-900 text-white font-black py-5 rounded-2xl uppercase text-xs tracking-widest text-white">KE DASHBOARD RIWAYAT</button>
+    </main>
+
+    <!-- 6. ADMIN VIEW -->
+    <main id="view-admin" class="hidden-view fade-in max-w-6xl mx-auto px-4 py-10 text-slate-900">
+        <div class="bg-slate-900 p-8 rounded-[40px] flex justify-between items-center text-white mb-10 shadow-2xl">
+            <div><h2 class="text-2xl font-black uppercase tracking-widest text-white">Master Administrator</h2><p class="text-slate-500 font-bold text-[10px] uppercase mt-1 text-slate-400 tracking-wider">Full Access Connected</p></div>
+            <button onclick="window.showView('landing')" class="text-xs font-black bg-red-500 px-6 py-3 rounded-2xl hover:bg-white hover:text-red-500 transition-all uppercase text-white">Logout</button>
+        </div>
+
+        <div class="glass-card p-8 rounded-[40px] mb-12">
+            <h4 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-6">Laporan Rencana Kerja</h4>
+            <div class="grid md:grid-cols-3 gap-6 items-end">
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Bulan</label><select id="filter-bulan" class="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"><option value="">Semua Bulan</option><option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option><option value="04">April</option><option value="05">Mei</option><option value="06">Juni</option><option value="07">Juli</option><option value="08">Agustus</option><option value="09">September</option><option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option></select></div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Tahun</label><input type="number" id="filter-tahun" placeholder="Contoh: 2026" class="w-full px-5 py-3 border rounded-xl font-bold text-slate-900"></div>
+                <div><label class="block text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">Kategori</label><select id="filter-tipe" class="w-full px-5 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-900"><option value="semua">Semua</option><option value="praktikum">Praktikum</option><option value="penelitian">Penelitian</option></select></div>
+            </div>
+            <button onclick="window.generateCustomPDF()" class="w-full mt-8 btn-3d bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest text-white">📥 DOWNLOAD DATA RIWAYAT PDF</button>
+        </div>
+
+        <div id="admin-p-table-container"></div>
+        <div id="admin-n-table-container" class="mt-12"></div>
+    </main>
+
+    <!-- MODAL ADMIN LOGIN -->
+    <div id="modal-admin-login">
+        <div class="popup-scale glass-card p-10 rounded-[40px] max-w-sm w-full relative shadow-2xl text-center m-4 text-slate-900">
+            <h3 class="text-2xl font-black mb-6 uppercase tracking-tighter">Login Administrator</h3>
+            <input type="password" id="admin-pass-input" placeholder="Masukkan Password" class="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold mb-6 text-center text-slate-900 focus:outline-none">
+            <div class="flex gap-3 text-slate-900">
+                <button onclick="window.closeAdminLogin()" class="flex-1 py-4 rounded-2xl font-black text-xs text-slate-400 uppercase tracking-widest hover:bg-slate-100 transition-all">Batal</button>
+                <button onclick="window.checkAdminLogin()" class="flex-1 btn-3d bg-blue-600 text-white font-black py-4 rounded-2xl uppercase text-xs tracking-widest text-white">Masuk</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP DAILY ACTIVITIES -->
+    <div id="popup-daily">
+        <div class="popup-scale glass-card p-8 md:p-10 rounded-[50px] max-w-2xl w-full relative shadow-2xl border-4 border-white/50 m-4 text-slate-900">
+            <button onclick="window.closeDailyPopup()" class="absolute top-6 right-6 w-10 h-10 bg-slate-100 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center font-black transition-all text-slate-400">✕</button>
+            <div class="mb-8 text-left">
+                <h3 class="text-3xl font-black tracking-tighter">Agenda Hari Ini</h3>
+                <p id="popup-date" class="text-blue-600 font-black text-xs uppercase tracking-widest mt-1"></p>
+            </div>
+            <div id="popup-content" class="max-h-[50vh] overflow-y-auto pr-4 space-y-4"></div>
+            <div class="mt-10 text-white">
+                <button onclick="window.closeDailyPopup()" class="w-full btn-3d bg-blue-600 text-white font-black py-5 rounded-[25px] uppercase text-xs tracking-widest">Tutup Agenda</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI SCRIPTS -->
+    <script>
+        // Navigasi Views Utama
+        window.showView = (name) => {
+            document.querySelectorAll('main').forEach(el => el.classList.add('hidden-view'));
+            const target = document.getElementById(`view-${name}`);
+            if (target) {
+                target.classList.remove('hidden-view');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        };
+
+        // UI Admin Login
+        window.openAdminLogin = () => {
+            document.getElementById('modal-admin-login').classList.add('active');
+            document.getElementById('admin-pass-input').value = '';
+            document.getElementById('admin-pass-input').focus();
+        };
+
+        window.closeAdminLogin = () => {
+            document.getElementById('modal-admin-login').classList.remove('active');
+        };
+
+        window.checkAdminLogin = () => {
+            const pass = document.getElementById('admin-pass-input').value;
+            if (pass === "admin123") {
+                window.closeAdminLogin();
+                window.showView('admin');
+            } else {
+                alert("Akses Ditolak! Password Salah.");
+            }
+        };
+
+        window.closeDailyPopup = () => {
+            document.getElementById('popup-daily').classList.remove('active');
+        };
+    </script>
+
+    <!-- FIREBASE MODULE -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIG FIREBASE (KODE ANDA)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDeTZGhTFhMTBszXY0Ji2aAe5VhFZNUjLU",
+            authDomain: "jpp-jadwal-praktikum-peneliti.firebaseapp.com",
+            projectId: "jpp-jadwal-praktikum-peneliti",
+            storageBucket: "jpp-jadwal-praktikum-peneliti.firebasestorage.app",
+            messagingSenderId: "592641758027",
+            appId: "1:592641758027:web:297d087174ca12e81dcece",
+            measurementId: "G-DT6DZ1PM1N"
+        };
+
+        // ID APLIKASI DIKEMBALIKAN KE road-lab-scheduling-app AGAR DATA LAMA TERBACA
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'road-lab-scheduling-app';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let praktikumData = [];
+        let penelitianData = [];
+
+        // Global functions attachment for module scope
+        window.openDailyPopup = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            
+            document.getElementById('popup-date').innerText = d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            
+            const tP = praktikumData.filter(x => x.tanggal === today);
+            const tN = penelitianData.filter(x => x.tanggal === today);
+            const content = document.getElementById('popup-content');
+
+            if (!tP.length && !tN.length) {
+                content.innerHTML = `<div class="text-center py-10 font-bold text-slate-400 italic">Tidak ada agenda berlangsung untuk hari ini.</div>`;
+            } else {
+                let html = '';
+                if (tP.length) {
+                    html += `<h4 class="text-[10px] font-black text-blue-500 uppercase tracking-widest pl-2 border-l-4 border-blue-600 mb-3 text-left">Sesi Praktikum</h4>`;
+                    tP.forEach(p => {
+                        html += `
+                        <div class="p-5 bg-blue-50 rounded-3xl border border-blue-100 flex flex-col gap-1 text-left shadow-sm">
+                            <div class="font-black text-slate-800 text-sm">Kelompok ${p.kelompok || '?'} (${p.asisten || 'NAMA ASISTEN'})</div>
+                            <div class="text-[10px] text-slate-500 font-bold uppercase">${p.modul || '-'}</div>
+                            <div class="mt-2 bg-blue-600 text-white px-3 py-1 rounded-full text-[9px] font-black w-fit uppercase">${p.sesi || '-'}</div>
+                        </div>`;
+                    });
+                }
+                if (tN.length) {
+                    html += `<h4 class="text-[10px] font-black text-emerald-500 uppercase tracking-widest pl-2 border-l-4 border-emerald-600 mt-6 mb-3 text-left">Sesi Penelitian</h4>`;
+                    tN.forEach(n => {
+                        html += `
+                        <div class="p-5 bg-emerald-50 rounded-3xl border border-emerald-100 flex flex-col gap-1 text-left shadow-sm">
+                            <div class="font-black text-slate-800 text-sm">${n.nama || 'PENELITI'} (${n.npm || '-'})</div>
+                            <div class="mt-2 bg-emerald-600 text-white px-3 py-1 rounded-full text-[9px] font-black w-fit uppercase text-white">${n.sesi || '-'}</div>
+                        </div>`;
+                    });
+                }
+                content.innerHTML = html;
+            }
+            document.getElementById('popup-daily').classList.add('active');
+        };
+
+        // --- AUTH & DATA SYNC ---
+        onAuthStateChanged(auth, async (u) => {
+            if (u) {
+                document.getElementById('status-dot').className = "w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+                document.getElementById('status-text').innerText = "Cloud Terkoneksi";
+                document.getElementById('status-text').className = "text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none";
+                
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'praktikum'), (snap) => {
+                    praktikumData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderHistory('praktikum');
+                    renderAdminTable('praktikum');
+                });
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'penelitian'), (snap) => {
+                    penelitianData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    renderHistory('penelitian');
+                    renderAdminTable('penelitian');
+                });
+            } else {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (err) {
+                    console.warn("Auth mismatch, falling back to anonymous.");
+                    await signInAnonymously(auth);
+                }
+            }
+        });
+
+        // --- UI RENDER (History Table) ---
+        function renderHistory(type) {
+            const container = document.getElementById(`history-${type}`);
+            const data = type === 'praktikum' ? praktikumData : penelitianData;
+            if (!data.length) {
+                container.innerHTML = `<div class="p-10 border-2 border-dashed border-slate-300 rounded-[40px] text-center text-slate-400 font-bold">Belum ada riwayat kegiatan.</div>`;
+                return;
+            }
+            const groups = data.reduce((acc, o) => { const d = o.tanggal || "No Date"; acc[d] = acc[d] || []; acc[d].push(o); return acc; }, {});
+            const sortedDates = Object.keys(groups).sort((a,b) => new Date(b) - new Date(a));
+            
+            container.innerHTML = sortedDates.map(date => {
+                const readable = new Date(date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                return `
+                <div class="glass-card rounded-[35px] overflow-hidden border-2 border-white/50 mb-6 text-slate-900">
+                    <div class="bg-white/50 px-8 py-5 border-b flex justify-between items-center">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${readable}</span>
+                        <span class="bg-blue-600 text-white text-[9px] px-3 py-1 rounded-full font-black text-white">${groups[date].length} DATA</span>
+                    </div>
+                    <div class="overflow-x-auto text-left text-slate-900"><table class="w-full text-xs">
+                        <thead class="bg-slate-50 text-slate-400 uppercase font-black"><tr><th class="px-8 py-4 text-slate-900">Identitas</th><th class="px-8 py-4 text-slate-900">Alat & Bahan</th><th class="px-8 py-4 text-center text-slate-900">Sesi</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">${groups[date].map(i => `
+                            <tr>
+                                <td class="px-8 py-5 font-black text-slate-900">
+                                    ${type === 'praktikum' 
+                                        ? `<div>Kelompok ${i.kelompok}</div><div class="text-[9px] text-slate-400 uppercase tracking-tighter">${i.asisten || 'NAMA ASISTEN'}</div>` 
+                                        : `<div>${i.nama}</div><div class="text-[9px] text-slate-400 uppercase tracking-tighter">${i.npm || 'NPM'}</div>`}
+                                </td>
+                                <td class="px-8 py-5 text-slate-500 font-bold leading-relaxed max-w-xs">${i.alatBahan || '-'}</td>
+                                <td class="px-8 py-5 text-center"><span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-black text-[10px] whitespace-nowrap uppercase">${i.sesi || '-'}</span></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table></div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderAdminTable(type) {
+            const container = document.getElementById(`admin-${type === 'praktikum' ? 'p' : 'n'}-table-container`);
+            const data = type === 'praktikum' ? praktikumData : penelitianData;
+            container.innerHTML = `
+            <div class="glass-card rounded-[40px] overflow-hidden text-slate-900 text-left">
+                <div class="p-8 bg-slate-800 text-white font-black uppercase text-xs tracking-widest text-white">Database Master: ${type}</div>
+                <div class="overflow-x-auto"><table class="w-full text-xs text-slate-900">
+                    <thead><tr class="bg-slate-50 text-slate-400 uppercase font-black"><th class="px-8 py-4">Identitas</th><th class="px-8 py-4 text-center">Waktu</th><th class="px-8 py-4 text-center">Aksi</th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">${data.map(i => `
+                        <tr>
+                            <td class="px-8 py-5 font-black text-slate-900">
+                                ${type === 'praktikum' ? `Kelompok ${i.kelompok}` : i.nama}
+                            </td>
+                            <td class="px-8 py-5 font-bold text-blue-600 text-center">${i.tanggal}<br><span class="text-[10px] text-slate-400 uppercase">${i.sesi}</span></td>
+                            <td class="px-8 py-5 text-center"><button onclick="window.deleteData('${i.id}', '${type}')" class="bg-red-50 text-red-500 px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-all font-black text-xs uppercase">Hapus</button></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table></div>
+            </div>`;
+        }
+
+        // --- SUBMISSIONS ---
+        document.getElementById('praktikumForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-p');
+            const originalText = btn.innerText;
+            btn.disabled = true; btn.innerText = "MENYIMPAN...";
+            const payload = { kelompok: document.getElementById('p-kelompok').value, asisten: document.getElementById('p-asisten').value, modul: document.getElementById('p-modul').value, tanggal: document.getElementById('p-tanggal').value, sesi: `${document.getElementById('p-mulai').value} - ${document.getElementById('p-selesai').value}`, alatBahan: document.getElementById('p-alat-bahan').value, updatedAt: Date.now() };
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'praktikum'), payload);
+                e.target.reset(); window.showView('success');
+            } catch(e) { alert("Gagal Simpan ke Firebase!"); } finally { btn.disabled = false; btn.innerText = originalText; }
+        });
+
+        document.getElementById('penelitianForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-submit-n');
+            const originalText = btn.innerText;
+            btn.disabled = true; btn.innerText = "MENYIMPAN...";
+            const payload = { nama: document.getElementById('n-nama').value, npm: document.getElementById('n-npm').value, aktivitas: document.getElementById('n-aktivitas').value, tanggal: document.getElementById('n-tanggal').value, sesi: `${document.getElementById('n-mulai').value} - ${document.getElementById('n-selesai').value}`, alatBahan: document.getElementById('n-alat-bahan').value, updatedAt: Date.now() };
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'penelitian'), payload);
+                e.target.reset(); window.showView('success');
+            } catch(e) { alert("Gagal Simpan ke Firebase!"); } finally { btn.disabled = false; btn.innerText = originalText; }
+        });
+
+        window.deleteData = async (id, type) => {
+            if(confirm("Hapus data ini secara permanen dari database?")) {
+                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', type, id)); } catch(e) { console.error(e); }
+            }
+        };
+
+        // --- PDF GENERATOR ---
+        window.generateCustomPDF = () => {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const m = document.getElementById('filter-bulan').value;
+            const y = document.getElementById('filter-tahun').value;
+            const t = document.getElementById('filter-tipe').value;
+
+            let comb = [];
+            if (t === 'praktikum' || t === 'semua') praktikumData.forEach(d => comb.push({ ...d, type: 'PRAKTIKUM' }));
+            if (t === 'penelitian' || t === 'semua') penelitianData.forEach(d => comb.push({ ...d, type: 'PENELITIAN' }));
+
+            let filtered = comb.filter(d => {
+                const parts = (d.tanggal || "").split('-');
+                return (m ? parts[1] === m : true) && (y ? parts[0] === y : true);
+            });
+
+            if (!filtered.length) return alert("Data tidak tersedia.");
+
+            const grouped = filtered.reduce((acc, obj) => { const date = obj.tanggal || "Tanpa Tanggal"; if (!acc[date]) acc[date] = []; acc[date].push(obj); return acc; }, {});
+            const sortedDates = Object.keys(grouped).sort((a,b) => new Date(a) - new Date(b));
+
+            pdf.setFontSize(16).setFont("helvetica", "bold").text("RIWAYAT RENCANA KERJA LABORATORIUM", 105, 15, { align: 'center' });
+            pdf.setFontSize(10).text("Laboratorium Jalan Raya - Fakultas Teknik", 105, 21, { align: 'center' });
+            pdf.line(15, 25, 195, 25);
+            let cy = 32;
+
+            sortedDates.forEach((date) => {
+                const rd = new Date(date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                if (cy > 260) { pdf.addPage(); cy = 20; }
+                pdf.setFontSize(11).setFont("helvetica", "bold").text(`Tanggal: ${rd}`, 15, cy);
+                cy += 4;
+                const head = [["No", "Identitas", "Kegiatan/Modul", "Jam", "Alat & Bahan"]];
+                const body = grouped[date].map((item, idx) => [idx + 1, item.type === 'PRAKTIKUM' ? `Kelompok ${item.kelompok}\n${item.asisten || ''}` : `${item.nama}\n${item.npm || ''}`, item.type === 'PRAKTIKUM' ? item.modul : item.aktivitas, item.sesi, item.alatBahan || '-']);
+                pdf.autoTable({ head, body, startY: cy, margin: { left: 15, right: 15 }, styles: { fontSize: 7, cellPadding: 2 }, headStyles: { fillColor: [30, 58, 138] }, didDrawPage: (data) => { cy = data.cursor.y + 12; } });
+                cy = pdf.lastAutoTable.finalY + 12;
+            });
+
+            pdf.save(`Laporan_Riwayat_Lab_${new Date().getTime()}.pdf`);
+        };
+    </script>
+</body>
+</html>
